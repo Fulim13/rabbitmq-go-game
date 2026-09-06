@@ -63,3 +63,56 @@ You should get a "connection succeeded" message if all is well.
 docker run -d --name rabbitmq_stomp -p 61613:61613 -p 15672:15672 rabbitmq-stomp
 docker build -t rabbitmq-stomp .
 ```
+
+# Exchanges and Queues
+
+In RabbitMQ, an exchange is where publishers send messages, typically with a routing key.
+The exchange takes the message, uses the routing key as a filter, and sends the message to any queues that are listening for that routing key.
+Publishers don't know about queues at all. They just send messages to exchanges, sometimes with a routing key.
+![alt text](image.png)
+
+- Exchange: A routing agent that sends messages to queues.
+- Binding: A link between an exchange and a queue that uses a routing key to decide which messages go to the queue.
+- Queue: A buffer in the RabbitMQ server that holds messages until they are consumed.
+- Channel: A virtual connection inside a connection that allows you to create queues, exchanges, and publish messages.
+- Connection: A TCP connection to the RabbitMQ server.
+
+Assingment:
+Assignment
+Let's update our server to publish pause/resume messages to an exchange on a specific routing key. The server can then communicate with all the various players of the game to let them know when the game is paused or resumed. We'll handle the queues and consumption of the messages later.
+
+1. In cmd/server/main.go, after opening the RabbitMQ connection, create a new channel using the .Channel method on the connection.
+2. Create a new package: internal/pubsub. This is where we'll put reusable code for interacting with RabbitMQ, that way we can use it in both the server and client.
+3. Create an exported PublishJSON function in the internal/pubsub package. Here's its signature:
+
+```go
+func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error
+```
+
+4. In PublishJSON :
+   1. Marshal the val to JSON bytes
+   2. Use the channel's .PublishWithContext method to publish the message to the exchange with the routing key. Some configurations:
+      1. Set ctx to context.Background()
+      2. Set mandatory to false.
+      3. Set immediate to false.
+      4. In the amqp.Publishing struct, you only need to set two fields:
+         1. ContentType to "application/json".
+         2. Body to the JSON bytes.
+
+5. Back in the server code, use the PublishJSON function to publish a message to the exchange!
+   1. Use the channel you created.
+   2. Use the internal/routing package's ExchangePerilDirect string for the exchange.
+   3. Use the internal/routing package's PauseKey string for the routing key.
+   4. Pass a PlayingState value from the internal/routing package with IsPaused set to true.
+6. Make sure the RabbitMQ Docker container is running in the background, if it's not run ./rabbit.sh start.
+7. Run your server with:
+
+```sh
+go run ./cmd/server
+```
+
+8. Watch the logs (./rabbit.sh logs) of the RabbitMQ server... you should see an error like this:
+   no exchange 'peril_direct' in vhost '/'
+9. Go to the RabbitMQ management UI at http://localhost:15672 and navigate to the "Exchanges" tab. Create a new exchange called peril_direct with the type direct.
+10. Rerun the server. You should see the message get published without any errors in the RabbitMQ logs.
+    While there are no hard errors, the message will be "unroutable" because there are no queues bound to the exchange yet, but we'll fix that later.
