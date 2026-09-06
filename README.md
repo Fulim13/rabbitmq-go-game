@@ -16,3 +16,8 @@ docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.13-ma
 
 This will download and run the RabbitMQ server and ManagementUI until you kill it with Ctrl+C
 The server itself is running on port 5672, but you won't interact with it in your browser, just through code. However, you can use the management UI in your browser. Open http://localhost:15672 and log in with the username guest and password guest.
+
+# AMQP Protocol
+
+- A communication protocol is just some rules that define how messages are sent, received, and understood.
+- Just like we define how can is, then so we can communicate with the term cat to convey the four leg monster meaning
