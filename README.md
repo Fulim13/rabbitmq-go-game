@@ -116,3 +116,16 @@ go run ./cmd/server
 9. Go to the RabbitMQ management UI at http://localhost:15672 and navigate to the "Exchanges" tab. Create a new exchange called peril_direct with the type direct.
 10. Rerun the server. You should see the message get published without any errors in the RabbitMQ logs.
     While there are no hard errors, the message will be "unroutable" because there are no queues bound to the exchange yet, but we'll fix that later.
+
+# Types of Exchanges
+
+RabbitMQ supports several types of exchanges, each serving a different routing strategy.
+![alt text](image-1.png)
+In my experience, direct and topic are the most commonly useful in backend Pub/Sub architectures. I rarely have a use for sending all messages to all queues, or for routing based on the message headers.
+
+Breakdown:
+
+1. Direct: Messages are routed to the queues based on the message routing key exactly matching the binding key of the queue.
+2. Topic: Messages are routed to queues based on wildcard matches between the routing key and the routing pattern specified in the binding.
+3. Fanout: It routes messages to all of the queues bound to it, ignoring the routing key.
+4. Headers: Routes based on header values instead of the routing key. It's similar to topic but uses message header attributes for routing.
