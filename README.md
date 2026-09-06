@@ -129,3 +129,27 @@ Breakdown:
 2. Topic: Messages are routed to queues based on wildcard matches between the routing key and the routing pattern specified in the binding.
 3. Fanout: It routes messages to all of the queues bound to it, ignoring the routing key.
 4. Headers: Routes based on header values instead of the routing key. It's similar to topic but uses message header attributes for routing.
+
+# Create a Queue
+
+- Queues are where the messages are stored after being routed through the exchange. Messages sit in a queue until they are consumed by a subscriber.
+
+Durability
+
+- Queues can be "durable" or "transient". Durable queues survive a RabbitMQ server restart, while transient queues do not.
+- The metadata of a durable queue is stored on disk, while transient queues are only stored in memory.
+
+Assignment:
+Let's manually create a queue to capture the "pause" messages our server is sending.
+
+1. Open the Management UI and navigate to the "Queues and Streams" tab. Click the "Add a new queue" dropdown at the bottom left.
+2. Name the queue pause_test, because we're just going to use it temporarily to test our server's ability to publish messages.
+3. Leave the durability as "Durable" and create the queue. If you screw it up, you can click on the queue, delete it, and try again.
+4. Click on the queue, then go to the "Bindings" section. You'll be able to see that the queue is already bound to the default exchange. Add another binding to the peril_direct exchange.
+   1. "From exchange": peril_direct
+   2. "Routing key": Use the exact string of the PauseKey constant from the internal/routing package. This is a direct exchange, so the routing key must match exactly.
+5. Click "Bind".
+6. Restart your server to publish a new message to the exchange.
+7. If everything worked, you should see a new "ready" message populate in the queue in the management UI. It's just sitting there patiently waiting to be consumed.
+8. After selecting the queue, scroll down to the "Get messages" tab. Click "Get Message(s)" to see the message that was published by the server. The payload is the JSON representation of the PlayingState struct with the IsPaused field set to true, though the UI may display it as an encoded string.
+9. The message should still be in the queue because "Nack message requeue true" will put the message back after showing it to you.
