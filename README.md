@@ -501,3 +501,61 @@ We're going to send _all_ failed messages in the Peril system to a single dead l
 2. Fanout is a good choice because we want _all_ failed messages sent to the exchange to be routed to the queue, without needing to worry about routing keys.
 3. Using the UI, create a new queue called `peril_dlq`.
 4. Go to the queue's page and bind the queue to the `peril_dlx` exchange with no routing key. Leave the default settings.
+
+# Ack and Nack
+
+So how does a consumer tell the message broker that an individual message succeeded or failed to be processed? When a consumer receives a message, it must [acknowledge](https://www.rabbitmq.com/confirms.html) it.
+
+If the subscriber crashes or fails to process the message, the message broker can just re-queue the message to be processed again, or discard it (perhaps to a dead-letter queue).
+
+"Ack" is short for "acknowledge", and "Nack" is short for "negative acknowledge". There are really 3 options for acknowledging a message:
+
+1. **Acknowledge**: Processed successfully.
+2. **Nack** and requeue: Not processed successfully, but should be requeued on the same queue to be processed again (retry).
+3. **Nack** and discard: Not processed successfully, and should be discarded (to a dead-letter queue if configured or just deleted entirely).
+
+## Assignment
+
+1. Update your `internal/pubsub.SubscribeJSON` function's `handler` parameter to return an "acktype" instead of nothing.
+   1. An "acktype" should be one of:
+      - `Ack`
+      - `NackRequeue`
+      - `NackDiscard`
+
+   2. Depending on the returned "acktype", the goroutine that calls the handler should either call:
+      - `Ack`: [`msg.Ack(false)`](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Delivery.Ack)
+      - `NackRequeue`: [`msg.Nack(false, true)`](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Delivery.Nack)
+      - `NackDiscard`: [`msg.Nack(false, false)`](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Delivery.Nack)
+
+2. For testing/debugging purposes, add a log statement alongside each Ack/Nack call to indicate which action occurred.
+3. Update your client's "move" and "pause" handlers to return an "acktype".
+   1. The "pause" handler should always Ack.
+   2. The "move" handler should only "Ack" if:
+      - The move outcome was "safe"
+      - Or, the move outcome was "make war"
+
+   3. The "move" handler should "NackDiscard" if:
+      - The move outcome was "same player"
+      - Or, the move outcome was anything else
+
+Test the changes by running 2 clients: `washington` and `napoleon`. Have `washington` spawn a couple of units:
+
+```text
+spawn americas artillery
+```
+
+Have `napoleon` spawn a unit:
+
+```text
+spawn europe cavalry
+```
+
+Then have `washington` move a unit into `napoleon`'s territory:
+
+```text
+move europe 1
+```
+
+Napoleon's client should "Ack" the message, and Washington's client should "NackDiscard" the message. Make sure your logs reflect that. You can move on when you're satisfied with the results.
+
+> You might notice that nothing went to the dead-letter queue. That's because we haven't configured it yet, and that's okay.
