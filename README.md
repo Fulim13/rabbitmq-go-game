@@ -263,3 +263,12 @@ Let's update the client to support its REPL commands (or at least an empty shell
 # Sync vs Async
 
 ![alt text](image-2.png)
+
+# Topic Exchange
+
+As we talked about before, topic-type exchanges are the most flexible and powerful type of exchange.
+
+## Assignment
+
+1. Open the RabbitMQ management UI and click on the exchanges tab.
+2. Create a new exchange with type topic, and name it peril_topic.
