@@ -371,3 +371,75 @@ The exclusive flag can be used to tell the RabbitMQ server to only allow one con
 
 Process an event once-per-server-instance (good for ephemeral, exclusive queues with one consumer)
 Process an event once, period (good for durable, non-exclusive queues with many consumers)
+
+# Routing Patterns
+
+Routing keys are one of the most powerful features of RabbitMQ. They allow the message broker to flexibly route messages to queues based on pattern matching, rather than exact matches.
+
+## Words
+
+[Routing keys](https://www.rabbitmq.com/tutorials/tutorial-five-python#topic-exchange) in RabbitMQ are made up of words separated by dots. For example, the routing key `user.created` is made up of two words: `user` and `created`. The routing key `peril.game.won` is made up of three words: `peril`, `game`, and `won`.
+
+## Wildcards
+
+RabbitMQ supports two types of wildcards in routing keys:
+
+- `*` (star) substitutes for exactly one word
+- `#` (hash) substitutes for zero or more words
+
+## Examples
+
+A queue bound to the key `peril.#` will pick up messages published to routing keys:
+
+- `peril.game.won`
+- `peril.game.lost`
+- `peril.player`
+- `peril`
+
+It will not match:
+
+- `game.won`
+- `perilgame.won`
+
+A queue bound to the key `peril.*.won` will pick up messages published to routing keys:
+
+- `peril.game.won`
+- `peril.player.won`
+
+It will not match:
+
+- `peril.game.lost`
+- `peril.won`
+
+## Assignment
+
+Whenever a player (client) uses the `move` command in our "Peril" game, we want to broadcast the move to all other connected players. We'll publish the message to the `army_moves.username` routing key, where `username` is the name of the player who made the move.
+
+Each client needs to bind a queue to the exchange using the routing key `army_moves.*` so that they get all the moves from other players.
+
+1. Each game client should subscribe to moves from other players before starting its REPL.
+   1. Bind to the `army_moves.*` routing key.
+   2. Use `army_moves.username` as the queue name, where `username` is the name of the player.
+   3. Use the `peril_topic` exchange.
+   4. Use a transient queue.
+   5. The handler for new messages should use the `GameState`'s `HandleMove` method and then print a new `>` prompt for the user.
+
+2. The `move` command in the REPL should now publish a move.
+   1. Publish the move to the `army_moves.username` routing key, where `username` is the name of the player.
+   2. Use the `peril_topic` exchange.
+   3. Log a message to the console stating that the move was published successfully.
+
+Test the changes by running 2 or 3 clients. Have one of the clients spawn a couple of units:
+
+```text
+spawn americas infantry
+spawn antarctica cavalry
+```
+
+Then move the units:
+
+```text
+move asia 1 2
+```
+
+All clients, _including the one who made the move_, should log a message that they successfully detected the move.
