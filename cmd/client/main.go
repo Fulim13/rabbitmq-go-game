@@ -36,7 +36,12 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, routing.ArmyMovesPrefix+"."+gameState.GetUsername(), routing.ArmyMovesPrefix+".*", pubsub.Transient, handlerMove(gameState))
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, routing.ArmyMovesPrefix+"."+gameState.GetUsername(), routing.ArmyMovesPrefix+".*", pubsub.Transient, handlerMove(gameState, publishCh))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, routing.WarRecognitionsPrefix, routing.WarRecognitionsPrefix+".*", pubsub.Durable, handlerWar(gameState))
 	if err != nil {
 		log.Fatalln(err)
 	}

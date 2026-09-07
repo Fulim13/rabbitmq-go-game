@@ -609,3 +609,54 @@ At-most-once delivery makes more sense when you're dealing with messages that, f
 Exactly-once delivery is [nearly impossible](https://exactly-once.github.io/posts/exactly-once-delivery/). That said, there are certainly ways to approximate it to the point of it being reliable from a practical perspective. However, of the three options, exactly-once delivery is the most difficult to implement and the most inefficient (slow).
 
 **At-least-once delivery is generally a good "default" choice for most systems.**
+
+# Nack Requeue
+
+So we've seen that `NackDiscard` removes a message from the primary queue, but what if we want to retry the message? As a general rule, you want to split your consumer's errors into two classes:
+
+- **Logical errors**: Unlikely to be resolved with a retry. For example, a message is malformed JSON, or the ID of a user doesn't exist in the database.
+- **Transient errors**: Likely to be resolved with a retry. For example, a network timeout, or a database connection error.
+
+If you `NackRequeue` a message, it will be requeued to the primary queue to be processed again. This can be _very bad_ if the error isn't transient as it will just be reprocessed over and over forever, blocking other messages and incurring large processing costs.
+
+I call this "Requeue Hell", and I've been forged in its fires.
+
+**Only `NackRequeue` messages if you're confident a retry will resolve the issue!**
+
+## Assignment
+
+Let's hook up the "war" logic of Peril!
+
+1. Update the "move" handler (and its registration in `main.go`) to accept an AMQP channel. When it detects `MoveOutcomeMakeWar`, it should:
+   1. Publish a message to the "topic" exchange with the routing key `$WARPREFIX.$USERNAME`.
+      1. `routing.WarRecognitionsPrefix` contains the `$WARPREFIX` constant
+      2. The `$USERNAME` should be the name of the player consuming the move.
+      3. Use this struct as the data to be published:
+
+         ```go
+         gamelogic.RecognitionOfWar{
+            Attacker: move.Player,
+            Defender: gs.GetPlayerSnap(),
+         }
+         ```
+
+   2. NackRequeue the message... Might seem crazy, but it will be fun.
+
+2. Create a new handler that consumes _all_ the war messages that the "move" handler publishes, no matter the username in the routing key. It should:
+   1. `defer fmt.Print("> ")` to ensure a new prompt is printed after the handler is done.
+   2. Call the gamestate's `HandleWar` method with the message's body.
+   3. If the outcome is `gamelogic.WarOutcomeNotInvolved`: NackRequeue the message so another client can try to consume it.
+   4. If the outcome is `gamelogic.WarOutcomeNoUnits`: NackDiscard the message.
+   5. If the outcome is `gamelogic.WarOutcomeOpponentWon`: Ack the message.
+   6. If the outcome is `gamelogic.WarOutcomeYouWon`: Ack the message.
+   7. If the outcome is `gamelogic.WarOutcomeDraw`: Ack the message.
+   8. If it's anything else, print an error and NackDiscard the message.
+
+3. Use a durable queue with the war handler. The queue name should just be `war`. All clients will **share** this queue. Whenever war is declared, only one client will consume the message.
+4. Test the changes.
+   1. Open the `war` queue in your RabbitMQ management UI.
+   2. Have `washington` spawn a unit: `spawn americas infantry`
+   3. Have `napoleon` spawn a unit: `spawn europe cavalry`
+   4. Have `washington` move into `napoleon`'s territory: `move europe 1`
+
+Watch as the queue freaks the hell out. You should see thousands of messages being requeued and processed over and over. It's a beautifully terrifying sight.
