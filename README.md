@@ -210,3 +210,25 @@ func DeclareAndBind(
 9. Check the RabbitMQ management UI to see if the queue was created and bound to the exchange.
 10. Close the client. If all goes well, the queue should automatically be deleted after a few seconds.
 11. Run the client as `suntzu` again, making sure the queue is recreated.
+
+# Decoupling
+
+- One of the big advantages of a Pub/Sub architecture over a point-to-point messaging system is decoupling.
+- Our server publishes the "Hey, I'm pausing the game" message _once_ to the broker, and anyone who cares can get a copy of the message in their own queue, all without the server knowing or caring who's listening.
+
+## Assignment
+
+First, let's update the server so that it can interactively pause and resume the game.
+
+1. Run the `PrintServerHelp` function in `internal/gamelogic` as the server starts up so that you can see the commands the user of the REPL can use.
+2. Start an infinite loop.
+3. At the beginning of the loop, use the `GetInput` function in `internal/gamelogic` to wait for a slice of input "words" from the user. If the slice is empty, continue to the next iteration of the loop.
+4. Check the first word:
+   1. If it's `"pause"`, log to the console that you're sending a pause message, and publish the pause message as you were doing before.
+   2. If it's `"resume"`, log to the console that you're sending a resume message, and publish the resume message as you were doing before. The only difference is that the `IsPaused` field should be set to `false`.
+   3. If it's `"quit"`, log to the console that you're exiting, and break out of the loop.
+   4. If it's anything else, log to the console that you don't understand the command.
+5. Test the app:
+   1. Start 3 clients, each in their own terminal. Use the usernames `washington`, `napoleon`, and `churchill`.
+   2. Run the server again to pause the game.
+   3. You should see 3 queues created in the RabbitMQ management UI, each with its own copy of the "pause" message.
