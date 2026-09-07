@@ -153,3 +153,60 @@ Let's manually create a queue to capture the "pause" messages our server is send
 7. If everything worked, you should see a new "ready" message populate in the queue in the management UI. It's just sitting there patiently waiting to be consumed.
 8. After selecting the queue, scroll down to the "Get messages" tab. Click "Get Message(s)" to see the message that was published by the server. The payload is the JSON representation of the PlayingState struct with the IsPaused field set to true, though the UI may display it as an encoded string.
 9. The message should still be in the queue because "Nack message requeue true" will put the message back after showing it to you.
+
+# Transient Queues
+
+Let's update our code to automatically create and delete transient queues, rather than doing it manually. We'll create the queues that the client will use to receive the "pause" messages from the server.
+
+## Durable and Transient Queue Types
+
+Durable queues survive a RabbitMQ server restart, while transient queues do not. We can also set the auto-delete and exclusive properties of our queues:
+
+- Exclusive: The queue can only be used by the connection that created it.
+- Auto-delete: The queue will be automatically deleted when its last connection is closed.
+
+For simplicity of our game, we'll make our transient and durable queues always have the same properties:
+
+- "Durable" queues in our system will always be non-exclusive and non-auto-delete.
+- "Transient" queues will always be exclusive and auto-delete.
+
+## Assignment
+
+1. Update the `cmd/client` package to connect to Rabbit, similar to the `cmd/server` package.
+2. Use the `ClientWelcome()` function in `internal/gamelogic` to prompt the user for a username.
+3. Declare and bind a transient queue by creating and using a new function in the `internal/pubsub` package. I called mine `DeclareAndBind` with this signature:
+
+```go
+func DeclareAndBind(
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType, // SimpleQueueType is an "enum" type I made to represent "durable" or "transient"
+) (*amqp.Channel, amqp.Queue, error)
+```
+
+4. In `DeclareAndBind`:
+   1. Create a new `.Channel()` on the connection.
+   2. Declare a new queue using `.QueueDeclare()`:
+      1. The `durable` parameter should only be true if `queueType` is durable.
+      2. The `autoDelete` parameter should be true if `queueType` is transient.
+      3. The `exclusive` parameter should be true if `queueType` is transient.
+      4. The `noWait` parameter should be false.
+      5. The `args` parameter should be nil.
+
+   3. Bind the queue to the exchange using `.QueueBind()`.
+   4. Return the channel and queue.
+
+5. Back in the `cmd/client` package, use these parameters to call `DeclareAndBind`:
+   1. `exchange`: `peril_direct` (this is a constant in the `internal/routing` package)
+   2. `queueName`: `pause.username` where `username` is the user's input. The `pause` section of the name is the routing key constant in the `internal/routing` package and is joined by a `.`.
+   3. `routingKey`: `pause` (this is a constant in the `internal/routing` package)
+   4. `queueType`: transient
+
+6. After declaring and binding the queue, the client should wait for a Ctrl+C signal to exit.
+7. Run the client! Enter `suntzu` (all lowercase) as the username.
+8. It will print out some nonsense about possible commands, but you can ignore that. You can't run them yet because we haven't implemented them.
+9. Check the RabbitMQ management UI to see if the queue was created and bound to the exchange.
+10. Close the client. If all goes well, the queue should automatically be deleted after a few seconds.
+11. Run the client as `suntzu` again, making sure the queue is recreated.
