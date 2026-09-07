@@ -577,3 +577,35 @@ We have a dead letter exchange and a dead letter queue, we just haven't configur
 Napoleon's client should "Ack" the message, and Washington's client should "NackDiscard" the message. This time, check the queue in the RabbitMQ management UI. You should see the failed message in the dead letter queue.
 
 > You can check the "Get messages" section of the queue's page. Get the latest message with "Nack Requeue" so you can see the raw message data.
+
+# Exact Delivery
+
+Delivering messages is hard. When you architect a system, you need to decide what guarantees to make. The three main types are:
+
+1. **At-least-once delivery**: If the message broker isn't sure the consumer received the message, it's retried.
+2. **At-most-once delivery**: If the message broker isn't sure the consumer received the message, it's discarded.
+3. **Exactly-once delivery**: The message is guaranteed to be delivered once and only once.
+
+| Type          | Complexity | Efficiency | Reliability |
+| ------------- | ---------- | ---------- | ----------- |
+| At-least-once | Medium     | Medium     | Medium      |
+| At-most-once  | Low        | High       | Low         |
+| Exactly-once  | High       | Low        | High        |
+
+## At-least-once
+
+In RabbitMQ, at-least-once delivery is the default. If a consumer fails to process a message, the message broker will just re-queue the message to be processed again. That means that you typically want to write your consumer code in such a way that it can process the same message multiple times without causing problems.
+
+For example, if you have a message that says "Falkor created an account", and your consumer is responsible for sending a verification SMS, you can simply have your consumer check if it already sent an SMS to Falkor in the last 3 minutes before sending another one. That way, even if the message is processed multiple times, only one SMS is sent.
+
+_NackRequeue is the default behavior in Rabbit, and it's an example of at-least-once delivery._
+
+## At-most-once
+
+At-most-once delivery makes more sense when you're dealing with messages that, frankly, aren't mission-critical. For example, instead of a message that represents a user account, maybe it's just a debug log. At-most-once delivery is more efficient from a performance perspective because it doesn't require the message broker to keep track of which messages have been processed, but obviously, it's less reliable.
+
+## Exactly-once
+
+Exactly-once delivery is [nearly impossible](https://exactly-once.github.io/posts/exactly-once-delivery/). That said, there are certainly ways to approximate it to the point of it being reliable from a practical perspective. However, of the three options, exactly-once delivery is the most difficult to implement and the most inefficient (slow).
+
+**At-least-once delivery is generally a good "default" choice for most systems.**
