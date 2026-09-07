@@ -286,3 +286,73 @@ Update the cmd/server application to declare and bind a queue to the new peril_t
 
 - It should be a durable queue named game_logs.
 - The routing key should be game_logs.\*. We'll go into detail on the routing key later.
+
+# Consumers
+
+So as of right now, we have the following setup:
+
+1. A publisher publishes a message
+2. The message arrives in an exchange
+3. The message is routed to queue(s)
+4. ???
+5. Profit
+
+In all seriousness, **nothing happens** after the message arrives in the queue!
+
+This is where consumers come in. Consumers are programs (like our "client" program) that connect to queues and pull the messages out of them.
+
+![alt text](image-3.png)
+
+## Assignment
+
+Let's configure our client consumers to process the "pause messages" and update their local game state.
+
+1. In your `internal/pubsub` package, create a new function called `SubscribeJSON`, here's my function signature:
+
+```go
+func SubscribeJSON[T any](
+    conn *amqp.Connection,
+    exchange,
+    queueName,
+    key string,
+    queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+    handler func(T),
+) error
+```
+
+2. In `SubscribeJSON`:
+   1. Call `DeclareAndBind` to make sure that the given queue exists and is bound to the exchange
+   2. Get a new [chan](https://gobyexample.com/channels) of [amqp.Delivery](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Delivery) structs by using the [`channel.Consume`](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Channel.Consume) method.
+      1. Use an empty string for the consumer name so that it will be auto-generated
+      2. Set all other parameters to false/nil
+
+   3. Start a goroutine that [ranges](https://tour.golang.org/moretypes/16) over the channel of deliveries, and for each message:
+      1. Unmarshal the body (raw bytes) of each message delivery into the (generic) `T` type.
+      2. Call the given `handler` function with the unmarshaled message
+      3. Acknowledge the message with [`delivery.Ack(false)`](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Delivery.Ack) to remove it from the queue
+
+3. Create a new function called `handlerPause` in the `cmd/client` application package. It accepts a game state struct and returns a new handler function that accepts a `routing.PlayingState` struct. This will be the `handler` we pass into `SubscribeJSON` that will be called each time a new message is consumed. Here's my signature:
+
+```go
+func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState)
+```
+
+1. In the handler function that `handlerPause` returns:
+   1. Use `defer fmt.Print("> ")` to display a new prompt (`> `) when the function exits.
+   2. Use the game state's `HandlePause` method to pause the game for the client.
+
+2. In the `cmd/client` package's `main` function, after creating the game state, replace your previous `DeclareAndBind` call with `pubsub.SubscribeJSON`. Use the following parameters:
+   1. The connection
+   2. The direct exchange (constant can be found in `internal/routing`)
+   3. A queue named `pause.username` where `username` is the username of the player
+   4. The routing key `pause` (constant can be found in `internal/routing`)
+   5. Transient queue type
+   6. The new handler we just created.
+
+3. Test the New Code
+   1. Start an instance of the server and the client in separate terminals. Use `washington` as the username for the client.
+   2. Spawn a unit using the client: `spawn europe infantry`
+   3. Pause the game using the server. You should see the client detect (consume) the pause message
+   4. Try to move a unit, the client should not allow it because the game is paused
+   5. Resume the game using the server. You should see the client detect (consume) the resume message
+   6. Try to move a unit, the client should allow it

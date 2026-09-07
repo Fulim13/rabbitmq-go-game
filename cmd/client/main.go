@@ -24,12 +24,12 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	_, _, err = pubsub.DeclareAndBind(conn, routing.ExchangePerilDirect, routing.PauseKey+"."+username, routing.PauseKey, pubsub.Transient)
+	gameState := gamelogic.NewGameState(username)
+
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, routing.PauseKey+"."+gameState.GetUsername(), routing.PauseKey, pubsub.Transient, handlerPause(gameState))
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	gameState := gamelogic.NewGameState(username)
 
 	for {
 		words := gamelogic.GetInput()
@@ -42,13 +42,13 @@ func main() {
 		case "spawn":
 			err := gameState.CommandSpawn(words)
 			if err != nil {
-				log.Fatalln(err)
+				fmt.Println(err)
 				continue
 			}
 		case "move":
 			_, err := gameState.CommandMove(words)
 			if err != nil {
-				log.Fatalln(err)
+				fmt.Println(err)
 				continue
 			}
 		case "status":
