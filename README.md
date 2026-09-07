@@ -259,3 +259,7 @@ Let's update the client to support its REPL commands (or at least an empty shell
 3. Test the Client REPL
    1. Start up a client REPL and test each command.
    2. Make sure that you can spawn units of all the different types and move them around the map.
+
+# Sync vs Async
+
+![alt text](image-2.png)
