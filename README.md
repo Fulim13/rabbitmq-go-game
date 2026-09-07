@@ -660,3 +660,27 @@ Let's hook up the "war" logic of Peril!
    4. Have `washington` move into `napoleon`'s territory: `move europe 1`
 
 Watch as the queue freaks the hell out. You should see thousands of messages being requeued and processed over and over. It's a beautifully terrifying sight.
+
+# Nack Requeue Fix
+
+Well, we don't want to be stuck in requeue hell. Let's fix that.
+
+## Assignment
+
+1. Update the "move" handler.
+   1. If publishing the war declaration fails, "NackRequeue" the message.
+   2. Otherwise, "Ack" the message.
+
+It makes sense to requeue on a network failure, but we shouldn't requeue if the message was successfully processed. Additionally, I want to call attention to how the "war" handler works: notice that if the outcome is "not involved" the client requeues the message. That's so that another client can pick it up and try to process it. The event can only be processed successfully by a client involved in the war.
+
+It's a bit janky, but it demonstrates how requeueing works, so here we are.
+
+2. Test the Changes
+   1. Open the `war` queue in your rabbitmq management UI.
+   2. Have `washington` spawn a unit: `spawn americas infantry`
+   3. Have `napoleon` spawn a unit: `spawn europe cavalry`
+   4. Have `washington` move into `napoleon`'s territory: `move europe 1`
+
+You should see a message indicating that Washington lost the war, and importantly, no more requeue hell.
+
+If even after making these changes you seem to be stuck with a stream of messages, you can safely delete or purge the `war` queue via the management UI.
