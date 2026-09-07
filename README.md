@@ -559,3 +559,21 @@ move europe 1
 Napoleon's client should "Ack" the message, and Washington's client should "NackDiscard" the message. Make sure your logs reflect that. You can move on when you're satisfied with the results.
 
 > You might notice that nothing went to the dead-letter queue. That's because we haven't configured it yet, and that's okay.
+
+# Dead Letter Queue
+
+We have a dead letter exchange and a dead letter queue, we just haven't configured any of our "normal" queues to send failed messages to the dead letter exchange yet.
+
+## Assignment
+
+1. In your `internal/pubsub` package, update your `DeclareAndBind` function. It should pass in an [amqp.Table](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Table) to the `QueueDeclare` function that includes a `x-dead-letter-exchange` key. The value should be the name of your dead letter exchange. This will tell RabbitMQ to send failed messages to the dead letter exchange.
+2. Stop your clients and restart them. This should delete their auto-delete queues and recreate them with the new dead letter exchange configuration.
+3. Delete the durable `game_logs` queue manually using the UI. Durable queues survive restarts, so redeclaring one with different arguments shows an `inequivalent arg` error.
+4. Run the same test as before by creating 2 clients: `washington` and `napoleon`.
+   1. Have `washington` spawn a couple of units: `spawn americas artillery`
+   2. Have `napoleon` spawn a unit: `spawn europe cavalry`
+   3. Have `washington` move a unit into `napoleon`'s territory: `move europe 1`
+
+Napoleon's client should "Ack" the message, and Washington's client should "NackDiscard" the message. This time, check the queue in the RabbitMQ management UI. You should see the failed message in the dead letter queue.
+
+> You can check the "Get messages" section of the queue's page. Get the latest message with "Nack Requeue" so you can see the raw message data.
