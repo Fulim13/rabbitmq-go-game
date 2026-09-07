@@ -232,3 +232,30 @@ First, let's update the server so that it can interactively pause and resume the
    1. Start 3 clients, each in their own terminal. Use the usernames `washington`, `napoleon`, and `churchill`.
    2. Run the server again to pause the game.
    3. You should see 3 queues created in the RabbitMQ management UI, each with its own copy of the "pause" message.
+
+# Client REPL
+
+Let's update the client to support its REPL commands (or at least an empty shell of them).
+
+## Assignment
+
+1. In the `cmd/client` application, after declaring and binding the pause queue, use the `NewGameState` function in `internal/gamelogic` to create a new game state.
+2. Add a REPL loop similar to what you did in the `cmd/server` application. Here's what each command should do:
+   1. The `spawn` command allows a player to add a new unit to the map under their control. Use the `gamestate.CommandSpawn` method and pass in the "words" from the `GetInput` command.
+      - Possible unit types are: `infantry`, `cavalry`, `artillery`
+      - Possible locations are: `americas`, `europe`, `africa`, `asia`, `antarctica`, `australia`
+      - Example usage: `spawn europe infantry`
+      - After spawning a unit, you should see its ID printed to the console.
+
+   2. The `move` command allows a player to move their units to a new location. It accepts two arguments: the destination, and the ID of the unit. Call the `gamestate.CommandMove` method and pass in all with "words" from the `GetInput` command. If the move is successful, print a message indicating that it worked.
+      - Example usage: `move europe 1`
+
+   3. The `status` command uses the `gamestate.CommandStatus` method to print the current status of the player's game state.
+   4. The `help` command uses the `gamelogic.PrintClientHelp` function to print a list of available commands.
+   5. For now, the `spam` command just prints a message that says `"Spamming not allowed yet!"`
+   6. The `quit` command uses the `gamelogic.PrintQuit` function to print a message, then exit the REPL.
+   7. If any other command is entered, print an error message and continue the loop.
+
+3. Test the Client REPL
+   1. Start up a client REPL and test each command.
+   2. Make sure that you can spawn units of all the different types and move them around the map.
