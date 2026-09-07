@@ -272,3 +272,17 @@ As we talked about before, topic-type exchanges are the most flexible and powerf
 
 1. Open the RabbitMQ management UI and click on the exchanges tab.
 2. Create a new exchange with type topic, and name it peril_topic.
+
+# Durable
+
+Durable queues survive a server restart, and in our case, we'll also make sure they:
+
+1. Are not deleted automatically when they are no longer in use
+2. Are not exclusive (multiple consumers can share the same queue)
+
+## Assignment
+
+Update the cmd/server application to declare and bind a queue to the new peril_topic exchange.
+
+- It should be a durable queue named game_logs.
+- The routing key should be game_logs.\*. We'll go into detail on the routing key later.

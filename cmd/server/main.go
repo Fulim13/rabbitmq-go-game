@@ -35,8 +35,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -53,12 +51,17 @@ func main() {
 	defer conn.Close()
 	fmt.Println("Peril game server connected to RabbitMQ!")
 
-	channel, err := conn.Channel()
+	publishCh, err := conn.Channel()
 	if err != nil {
 		log.Fatalln("failed to create channel")
 	}
 
-	amelogic.PrintServerHelp()
+	_, _, err = pubsub.DeclareAndBind(conn, "peril_topic", "game_logs", "game_logs.*", pubsub.Durable)
+	if err != nil {
+		log.Fatalln("failed to create channel")
+	}
+
+	gamelogic.PrintServerHelp()
 
 	for {
 		words := gamelogic.GetInput()
@@ -98,4 +101,5 @@ func main() {
 		default:
 			fmt.Println("unknown command")
 		}
+	}
 }
