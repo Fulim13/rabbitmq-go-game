@@ -356,3 +356,18 @@ func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState)
    4. Try to move a unit, the client should not allow it because the game is paused
    5. Resume the game using the server. You should see the client detect (consume) the resume message
    6. Try to move a unit, the client should allow it
+
+# Multi Consumers
+
+A queue can have 0, 1, or many consumers.
+
+![alt text](image-4.png)
+If a queue has no consumers, messages will accumulate in the queue and never be processed.
+If a queue has one consumer, that consumer will process all messages in the queue (assuming it can keep up).
+If a queue has many consumers, messages will be distributed between them in a round-robin fashion (unless you set a priority).
+Multiple queues each receive a copy of a message, but multiple consumers on one queue split the messages so each message is handled once.
+
+The exclusive flag can be used to tell the RabbitMQ server to only allow one consumer to connect to the queue at a time. I've found that often my pub/sub needs fall into one of two categories:
+
+Process an event once-per-server-instance (good for ephemeral, exclusive queues with one consumer)
+Process an event once, period (good for durable, non-exclusive queues with many consumers)
