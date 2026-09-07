@@ -476,3 +476,28 @@ This is the one that you _really_ want to get right. Not only do you want the ro
 - `comment.created`
 - `comment.deleted`
 - etc.
+
+# Dead Letter
+
+In a point-to-point system, the sender and receiver are tightly coupled. The sender immediately knows if the message was successfully delivered to the receiver. For example, with HTTP requests, we get simple [response codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status) like:
+
+- `200 OK`
+- `404 Not Found`
+- `500 Internal Server Error`
+
+In an asynchronous system like RabbitMQ, the sender and receiver are decoupled. The sender doesn't need to know if the message was successfully delivered to the receiver. That has benefits, like simplicity and performance, but it also means that the chance of bugs increases.
+
+## Dead Letter Exchanges and Queues
+
+To address this, it's common in PubSub systems to aggregate messages that fail to be processed into a [dead letter queue](https://www.rabbitmq.com/dlx.html). Queues can be configured to send messages that fail to be processed to a dead letter exchange, which then routes the message to a dead letter queue.
+
+![alt text](image-5.png)
+
+## Assignment
+
+We're going to send _all_ failed messages in the Peril system to a single dead letter exchange/queue. It will act as a log. This queue won't have any consumers, we'll just let the messages pile up so we can inspect them manually using the RabbitMQ management UI.
+
+1. Using the UI, create a new exchange called `peril_dlx` of type [fanout](https://www.rabbitmq.com/tutorials/amqp-concepts.html#exchange-fanout). Use the default settings.
+2. Fanout is a good choice because we want _all_ failed messages sent to the exchange to be routed to the queue, without needing to worry about routing keys.
+3. Using the UI, create a new queue called `peril_dlq`.
+4. Go to the queue's page and bind the queue to the `peril_dlx` exchange with no routing key. Leave the default settings.
