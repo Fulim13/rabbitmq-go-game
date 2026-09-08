@@ -869,3 +869,25 @@ In the next lesson, we'll empty the queue.
 If `messages_ready` is set to 0, try the following:
 
 - Restart the `rabbitmq` container. Make sure the `peril_direct` and `peril_topic` exchanges are there (they should be if you use `rabbit.sh`) and restart the server to create the `game_logs` queue.
+
+# Healthy Queues Are Empty
+
+Your `game_logs` queue should be quite full still. It's an unhealthy queue because it grows faster than it can be consumed. This is dangerous because it can lead to the system running out of memory or disk space. **If Rabbit goes down, your whole system goes down with it.**
+
+> A healthy queue is an empty queue.
+
+Most of the time a healthy cluster, even if it's processing thousands of messages per second, will have mostly empty queues. You always want to be able to consume messages as fast as they can be published.
+
+## Assignment
+
+In this case, we have a slow application (the peril "server") that can only process one message per second. Let's scale it up to 10 instances to see if we can empty the queue.
+
+I provided a `multiserver.sh` script in the root of your repo. Run it with `10` as the argument to start 10 peril servers.
+
+```bash
+./multiserver.sh 10
+```
+
+Watch the `game_logs` queue in the web UI. You should see 10 consumers connect to the queue, but if you watch the "consumer ack" stat, you might notice that you're not getting the 10 messages/second that you expected. Kill the script with Ctrl+C (which should kill all the peril servers).
+
+The reason has to do with [prefetch](https://www.rabbitmq.com/consumer-prefetch.html)... one of our consumers is caching _all_ the messages locally before the other consumers can get them. We'll fix that in the next lesson, you can move on.
