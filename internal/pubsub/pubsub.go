@@ -85,6 +85,43 @@ func DeclareAndBind(ch *amqp.Connection, exchange, queueName, key string, queueT
 	return channel, queue, nil
 }
 
+func SubscribeGob[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T) AckType) error {
+	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return err
+	}
+	deliveryCh, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
+
+	go func() {
+		defer ch.Close()
+		for delivery := range deliveryCh {
+			buffer := bytes.NewBuffer(delivery.Body)
+			decoder := gob.NewDecoder(buffer)
+			var target T
+			err := decoder.Decode(&target)
+			if err != nil {
+				fmt.Printf("could not decode message: %v\n", err)
+				continue
+			}
+			acktype := handler(target)
+			if acktype == Ack {
+				delivery.Ack(false)
+				fmt.Println("Ack")
+			}
+			if acktype == NackRequeue {
+				delivery.Nack(false, true)
+				fmt.Println("NackRequeue")
+			}
+			if acktype == NackDiscard {
+				delivery.Nack(false, false)
+				fmt.Println("NackDiscard")
+			}
+		}
+	}()
+
+	return nil
+}
+
 func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T) AckType) error {
 	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {

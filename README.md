@@ -720,3 +720,40 @@ Whenever "war" events happen, we want to log them. For now, let's just add the f
 You should be able to verify in the RabbitMQ management UI that a log was published to the `game_logs` queue.
 
 If you get a `PRECONDITION_FAILED` error when starting your server, you may need to delete the existing `game_logs` queue and restart your server. You cannot redeclare a queue with different arguments.
+
+# Consume Logs
+
+Now let's consume the logs and save them to disk.
+
+## Assignment
+
+1. Create a [.gitignore](https://git-scm.com/docs/gitignore) file if you don't already have one and ignore all files ending in `.log`:
+
+```gitignore
+*.log
+```
+
+2. Add a `SubscribeGob` function to the `internal/pubsub` package. It should be similar to the `SubscribeJSON` function, but decode from [gob](https://pkg.go.dev/encoding/gob) instead of JSON.
+
+I used generics to create a helper function to share duplicate code between `SubscribeJSON` and `SubscribeGob`. If you're curious this was the function signature of the helper:
+
+```go
+func subscribe[T any](
+    conn *amqp.Connection,
+    exchange,
+    queueName,
+    key string,
+    simpleQueueType SimpleQueueType,
+    handler func(T) Acktype,
+    unmarshaller func([]byte) (T, error),
+) error
+```
+
+3. Update the server to `SubscribeGob` to the `game_logs` queue instead of just declaring it. Use a wildcard in the routing key to make sure you capture logs from all clients, no matter the username. The handler should:
+   1. Defer printing a new prompt to the console.
+   2. Use the `gamelogic.WriteLog` function to write the log to disk.
+
+4. Test the code.
+   - Because your queue has some logs in it, you should see them get consumed as soon as you restart the server.
+   - Make sure that the `game.log` file contains the logs you expect.
+   - Ensure all the messages from the `game_logs` queue are consumed using the Rabbit UI.
