@@ -684,3 +684,39 @@ It's a bit janky, but it demonstrates how requeueing works, so here we are.
 You should see a message indicating that Washington lost the war, and importantly, no more requeue hell.
 
 If even after making these changes you seem to be stuck with a stream of messages, you can safely delete or purge the `war` queue via the management UI.
+
+# Game Logs
+
+In the Peril game, occasionally we want to "log" a game event. Those logs should go to a central location where they can be inspected later. It's common in large backend systems to print logs to [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_output_%28stdout%29) or [stderr](https://en.wikipedia.org/wiki/Standard_streams#Standard_error_%28stderr%29), but to also send logs to a central logging system or database.
+
+## Assignment
+
+Whenever "war" events happen, we want to log them. For now, let's just add the functionality to publish them, and we'll let the messages pile up in the logs queue.
+
+1. Add a `PublishGob` function to the `internal/pubsub` package.
+   1. It should be similar to the `PublishJSON` function, but encode to [gob](https://pkg.go.dev/encoding/gob)
+   2. Set the `ContentType` option to `application/gob`
+
+2. Update the war handler function in the client to publish game logs.
+   1. Capture the `winner` and `loser` return values from the `GameState`'s `HandleWar` method and use them to create the log message.
+      1. If the outcome is that the opponent won, the message should say `"{winner} won a war against {loser}"`.
+      2. If the outcome is that the player won, the message should also say `"{winner} won a war against {loser}"`.
+      3. If the outcome is a draw, the message should say `"A war between {winner} and {loser} resulted in a draw"`.
+
+   2. Create a reusable function to publish a `GameLog` struct:
+      1. The topic exchange.
+      2. The `GameLogSlug.username` routing key, where `username` is the name of the player who initiated the war, and `GameLogSlug` is a constant in the `routing` package.
+      3. The `GameLog` struct should be serialized using the `PublishGob` function. Fill all the fields in.
+
+   3. If a publishing fails, `NackRequeue`, otherwise `Ack`.
+
+3. Test the code.
+   1. Spin up two clients and a server. Make sure the `game_logs` queue exists.
+   2. Have one client spawn a unit: `spawn americas infantry`
+   3. Have the other client spawn a unit: `spawn europe cavalry`
+   4. Have the first client declare war by moving a unit into the other client's territory: `move europe 1`
+   5. Repeat with different matchups to trigger **each war outcome** (you win, opponent wins, draw). You need at least **three logs** in the `game_logs` queue before submitting.
+
+You should be able to verify in the RabbitMQ management UI that a log was published to the `game_logs` queue.
+
+If you get a `PRECONDITION_FAILED` error when starting your server, you may need to delete the existing `game_logs` queue and restart your server. You cannot redeclare a queue with different arguments.
