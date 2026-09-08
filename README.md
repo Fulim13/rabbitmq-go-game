@@ -805,3 +805,32 @@ _If you make a breaking change to a schema, use a new routing-key/queue._ That w
 ## Note
 
 In some languages, like JavaScript, you also have to be careful about removing fields because it can result in `undefined` errors if the client isn't coded in a robust way. In Go, it's usually safer because it defaults to the zero value.
+
+# Nodes and Clusters
+
+RabbitMQ and most other message brokers are [distributed systems](https://en.wikipedia.org/wiki/Distributed_computing). Our local RabbitMQ server is just a single node, but in production, you'd likely have an entire cluster of nodes. Some advantages of a large cluster include:
+
+1. **High Availability**: If one node goes down, other nodes can take over.
+2. **Scalability**: You're not constrained by the resources of a single machine.
+3. **Redundancy**: If one node goes down, the messages aren't lost.
+
+## Resources
+
+1. **CPU**: Faster nodes (more [cores](https://en.wikipedia.org/wiki/Multi-core_processor), higher [clock speed](https://en.wikipedia.org/wiki/Clock_rate)) and more nodes can both help.
+2. **Memory**: More [RAM](https://en.wikipedia.org/wiki/Random-access_memory) per node and more nodes can both help.
+3. **Disk**: More disk space per node and more nodes can both help.
+4. **Network Bandwidth**: In a cloud setting, bandwidth is usually provisioned in proportion to a node's size.
+
+I've found that using a cluster of 3 nodes is a solid starting point for most production applications, even if you're processing thousands of messages per second. I've also found that when you find your nodes starting to hit limits on CPU, RAM, or Disk, it's generally better to scale vertically first (more powerful nodes) before you go crazy horizontally (larger number of nodes).
+
+More nodes mean more resources, but it also means more management overhead and complexity.
+
+## A Story
+
+I worked on a system that processed tens of thousands of messages per second on a single Rabbit cluster. When I started we had 3 relatively small nodes (2-core CPU, 8GB RAM, 100GB disk). First, we started to run out of CPU and RAM, so we scaled vertically. We eventually were using a 32-core CPU, and 128GB RAM. From there, we moved to 5 nodes instead of 3 and were able to handle the load well at each step.
+
+## How Do You Know?
+
+The overview tab in the RabbitMQ management console is the best place to start. It will show you high-level stats about the resource usage of your cluster.
+
+![alt text](image-6.png)
