@@ -757,3 +757,51 @@ func subscribe[T any](
    - Because your queue has some logs in it, you should see them get consumed as soon as you restart the server.
    - Make sure that the `game.log` file contains the logs you expect.
    - Ensure all the messages from the `game_logs` queue are consumed using the Rabbit UI.
+
+# Schema
+
+We've serialized structs to [JSON](https://en.wikipedia.org/wiki/JSON) and [Gob](https://pkg.go.dev/encoding/gob), but there are many other possible choices like [protocol buffers](https://developers.google.com/protocol-buffers) or [Avro](https://avro.apache.org/).
+
+While choosing which serialization format to use is important, it's also important to be careful about the shape or "schema" of the data you're serializing. As a general rule, if you make breaking changes to a schema, make sure you handle backward compatibility.
+
+## Updating the Schema
+
+Let's say we have a `User` struct that we send around in our Pub/Sub system:
+
+```go
+type User struct {
+    ID int
+    Name string
+}
+```
+
+It's usually okay to just add and remove fields willy-nilly:
+
+```go
+type User struct {
+    ID int
+    Name string
+    Email string
+}
+// or
+type User struct {
+    ID int
+}
+```
+
+However, if you _change_ a field, you need to be careful. Say we want to make this update:
+
+```go
+type User struct {
+    ID string // change to string
+    Name string
+}
+```
+
+If there are old messages in a queue with the `int` IDs and we push this change, our new consumers will fail to decode the old messages over and over, resulting in a lot of errors and discarded messages (or retry loops). I have a simple rule:
+
+_If you make a breaking change to a schema, use a new routing-key/queue._ That way, the old consumers can polish off all the old messages, and the new consumers can start fresh with the new schema.
+
+## Note
+
+In some languages, like JavaScript, you also have to be careful about removing fields because it can result in `undefined` errors if the client isn't coded in a robust way. In Go, it's usually safer because it defaults to the zero value.
