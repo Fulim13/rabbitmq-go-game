@@ -834,3 +834,38 @@ I worked on a system that processed tens of thousands of messages per second on 
 The overview tab in the RabbitMQ management console is the best place to start. It will show you high-level stats about the resource usage of your cluster.
 
 ![alt text](image-6.png)
+
+# Backpressure
+
+Backpressure is a common problem in Pub/Sub systems. It happens when messages are being published to a queue faster than they can be consumed. This leads to a growing queue size, which can eventually cause the system to run out of memory or disk space.
+
+## Assignment
+
+Let's add a feature to spam absurd amounts of game logs... for science. We'll use this feature to demonstrate backpressure.
+
+1. In the `cmd/client` package, in the `main` function, update the section of code that handles the `spam` command. It should now:
+   1. Ensure that a second "word" was provided in the command. E.g. `spam 10` or `spam 1000`. Convert that word into an integer.
+   2. Do the following `n` times, where `n` is the integer from the command:
+      1. Use `gamelogic.GetMaliciousLog` to get a malicious log message.
+      2. Publish the log message (a struct) to Rabbit. Use the following parameters:
+         1. Exchange: `peril_topic`
+         2. Key: `game_logs.username`, where `username` is the username of the player
+
+Because our `game_logs` queue is listening for messages with the routing key `game_logs.*`, the server will receive messages from all players.
+
+2. Test the new code.
+   1. Start a server and a client. Open the web UI to the `game_logs` queue screen.
+   2. Use the client to spam 25 log messages.
+   3. Notice how in the web UI you should see a spike in queued messages. Notice that the server can only process one log per second (due to the `time.Sleep` call in `WriteLog`), so after 25 seconds, you should see the queue empty out.
+   4. Publish another 1,000 logs.
+   5. Again, you'll see a huge spike, but this time it's going to take too long to wait for...
+
+**Stop the server**, then **run and submit** the CLI tests **while the queue has at least 500 messages!**
+
+In the next lesson, we'll empty the queue.
+
+## Troubleshooting
+
+If `messages_ready` is set to 0, try the following:
+
+- Restart the `rabbitmq` container. Make sure the `peril_direct` and `peril_topic` exchanges are there (they should be if you use `rabbit.sh`) and restart the server to create the `game_logs` queue.
