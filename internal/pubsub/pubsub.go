@@ -90,6 +90,11 @@ func SubscribeGob[T any](conn *amqp.Connection, exchange, queueName, key string,
 	if err != nil {
 		return err
 	}
+	err = ch.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("could not set QoS: %v", err)
+	}
+
 	deliveryCh, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
 
 	go func() {
@@ -126,6 +131,10 @@ func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string
 	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
 		return err
+	}
+	err = ch.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("could not set QoS: %v", err)
 	}
 	deliveryCh, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
 

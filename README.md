@@ -891,3 +891,27 @@ I provided a `multiserver.sh` script in the root of your repo. Run it with `10` 
 Watch the `game_logs` queue in the web UI. You should see 10 consumers connect to the queue, but if you watch the "consumer ack" stat, you might notice that you're not getting the 10 messages/second that you expected. Kill the script with Ctrl+C (which should kill all the peril servers).
 
 The reason has to do with [prefetch](https://www.rabbitmq.com/consumer-prefetch.html)... one of our consumers is caching _all_ the messages locally before the other consumers can get them. We'll fix that in the next lesson, you can move on.
+
+# Prefetch
+
+When you run a consumer, you may have assumed this process for message consumption:
+
+1. Fetch a message from the queue (across the network, which can be slow)
+2. Process the message
+3. Acknowledge the message
+4. Repeat
+
+But that would slow everything down to a crawl due to the full network round trip for every message. Instead, RabbitMQ allows you to prefetch messages. When you [prefetch](https://www.rabbitmq.com/consumer-prefetch.html) messages, RabbitMQ will send you a batch of messages at once, the client library will store them in memory, and you can process them one by one. _Much faster_. The diagram shows 3 consumers each prefetching batches of 2.
+
+![alt text](image-7.png)
+
+By default, we were allowing one client to prefetch all 1,000 messages from the server! That means other clients couldn't get any messages until the first client had processed all 1,000. We need to limit the prefetch count.
+
+## Assignment
+
+1. In the `internal/pubsub` package, update your consumption code. It should call [channel.Qos](https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Channel.Qos) _before_ calling `channel.Consume`. Limit the prefetch count to `10`.
+
+This will ensure that each client only prefetches 10 messages at a time. This will allow other clients to get messages while one client is processing.
+
+2. Run the multiserver again. You should be able to consume around 10 messages per second when running 10 peril servers.
+3. Run the servers until the queue is empty, then kill them with Ctrl+C.
