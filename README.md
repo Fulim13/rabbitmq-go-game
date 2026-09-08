@@ -915,3 +915,19 @@ This will ensure that each client only prefetches 10 messages at a time. This wi
 
 2. Run the multiserver again. You should be able to consume around 10 messages per second when running 10 peril servers.
 3. Run the servers until the queue is empty, then kill them with Ctrl+C.
+
+# Quorum Queues
+
+Generally speaking, there are 2 queue types to worry about:
+
+1. [Classic queues](https://www.rabbitmq.com/docs/classic-queues) (we've been using these)
+2. [Quorum queues](https://www.rabbitmq.com/docs/quorum-queues)
+
+Classic queues are the default and are great for most use cases. They are fast and simple. However, they have a single point of failure: the node that the queue is on. If that node goes down, the queue is lost.
+
+You might be thinking, "Wait! You told me Rabbit is a distributed system!" And you're right, _Rabbit_ is distributed, but classic queues are not. They are stored on a single node. If that node goes down, the queue is lost, at least until the node comes back online.
+
+Quorum queues are designed to be more resilient. They are stored on multiple nodes, so if one node goes down, the queue is still available. The tradeoff is that because quorum queues are stored on multiple nodes, they are slower than classic queues.
+
+![alt text](image-8.png)
+_As a general rule, I use classic queues for my ephemeral queues (transient, auto-delete, etc). I use quorum queues for most of my durable queues._
